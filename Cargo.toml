@@ -1,5 +1,23 @@
-[workspace]
-members = [
-    "accumulator-common",
-    "accumulator-rsa"
+[package]
+authors = ["Michael Lodder <redmike7@gmail.com>, hifided"]
+categories = ["cryptography", "rsa"]
+description = "A Universal Cryptographic RSA Accumulator with no_std WASM32 support"
+documentation = "https://docs.rs/accumulator-rs"
+edition = "2021"
+license = "Apache-2.0"
+name = "accumulator-rs"
+readme = "README.md"
+version = "1.0.0"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive",] }
+rsa = { version = "0.1.0", path = "accumulator-rsa", default-features = false }
+
+[dev-dependencies]
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
 ]
+
