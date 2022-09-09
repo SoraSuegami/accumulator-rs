@@ -1,3 +1,8 @@
+#[cfg(no_std)]
+use no_std_compat::prelude::v1::format;
+use no_std_compat::vec::Vec;
+use no_std_compat::prelude::v1::vec;
+
 use crate::{
     b2fa, hash::hash_to_prime, key::AccumulatorSecretKey, FACTOR_SIZE, MEMBER_SIZE,
     MEMBER_SIZE_BITS, MIN_BYTES,
@@ -6,7 +11,7 @@ use common::{
     bigint::BigInteger,
     error::{AccumulatorError, AccumulatorErrorKind},
 };
-use rayon::prelude::*;
+//use rayon::prelude::*;
 use std::{
     collections::BTreeSet,
     convert::TryFrom,
@@ -68,7 +73,8 @@ impl Accumulator {
     /// Initialize a new accumulator prefilled with entries
     pub fn with_members<M: AsRef<[B]>, B: AsRef<[u8]>>(key: &AccumulatorSecretKey, m: M) -> Self {
         let m: Vec<&[u8]> = m.as_ref().iter().map(|b| b.as_ref()).collect();
-        let members: BTreeSet<BigInteger> = m.par_iter().map(|b| hash_to_prime(b)).collect();
+        //let members: BTreeSet<BigInteger> = m.par_iter().map(|b| hash_to_prime(b)).collect();
+        let members: BTreeSet<BigInteger> = m.iter().map(|b| hash_to_prime(b)).collect();
         Self::_add_members(key, members)
     }
 
@@ -77,8 +83,10 @@ impl Accumulator {
         key: &AccumulatorSecretKey,
         m: &[BigInteger],
     ) -> Result<Self, AccumulatorError> {
-        let members: BTreeSet<BigInteger> = m.par_iter().cloned().collect();
-        if members.par_iter().any(|b| !b.is_prime()) {
+        //let members: BTreeSet<BigInteger> = m.par_iter().cloned().collect();
+        let members: BTreeSet<BigInteger> = m.iter().cloned().collect();
+        //if members.par_iter().any(|b| !b.is_prime()) {
+        if members.iter().any(|b| !b.is_prime()) {
             return Err(AccumulatorError::from_msg(
                 AccumulatorErrorKind::InvalidMemberSupplied,
                 "Some values are not prime and cannot be added",
@@ -96,7 +104,8 @@ impl Accumulator {
 
     /// Add many members
     pub fn add_prime_members_assign(&mut self, m: &[BigInteger]) -> Result<(), AccumulatorError> {
-        if m.par_iter().any(|b| !b.is_prime() || self.members.contains(&b)) {
+        //if m.par_iter().any(|b| !b.is_prime() || self.members.contains(&b)) {
+        if m.iter().any(|b| !b.is_prime() || self.members.contains(&b)) {
             return Err(AccumulatorError::from_msg(AccumulatorErrorKind::InvalidMemberSupplied, "Some values are not prime and already exist in the set"));
         }
 
@@ -117,12 +126,14 @@ impl Accumulator {
         // v ^ {\pi_add} mod N
         let totient = key.totient();
         let exp = members
-            .par_iter()
+            .iter() //.par_iter()
             .cloned()
-            .reduce(|| BigInteger::from(1u32), |v, m| v.mod_mul(&m, &totient));
+            //.reduce(|| BigInteger::from(1u32), |v, m| v.mod_mul(&m, &totient));
+            .reduce(|_, _| BigInteger::from(1u32)); 
         let modulus = key.modulus();
         let generator = random_qr(&modulus);
-        let value = (&generator).mod_exp(&exp, &modulus);
+        //let value = (&generator).mod_exp(&exp, &modulus);
+        let value = (&generator).mod_exp(&exp.unwrap(), &modulus);
         Self {
             generator,
             members,

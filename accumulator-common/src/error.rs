@@ -1,3 +1,7 @@
+//#![no_std]
+extern crate no_std_compat as std;
+use no_std_compat::prelude::v1::format;
+
 use failure::{Backtrace, Context, Fail};
 
 /// The error types
@@ -55,7 +59,8 @@ impl std::fmt::Display for AccumulatorError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let mut first = true;
 
-        for cause in Fail::iter_chain(&self.inner) {
+        //for cause in Fail::iter_chain(&self.inner) {
+        for cause in <dyn Fail>::iter_chain(&self.inner) {
             if first {
                 first = false;
                 writeln!(f, "Error: {}", cause)?;
@@ -100,3 +105,4 @@ impl From<num_bigint::ParseBigIntError> for AccumulatorError {
         AccumulatorError::from_msg(AccumulatorErrorKind::InvalidType, format!("{:?}", err))
     }
 }
+

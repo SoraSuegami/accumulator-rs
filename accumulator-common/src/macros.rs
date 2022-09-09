@@ -1,3 +1,8 @@
+#[cfg(no_std)]
+use no_std_compat::prelude::v1::format;
+use no_std_compat::vec::Vec;
+use no_std_compat::prelude::v1::vec;
+
 /// Implement Serialization methods based on TryFrom
 #[macro_export]
 macro_rules! serdes_impl {

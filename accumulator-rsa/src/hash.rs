@@ -1,3 +1,8 @@
+#[cfg(no_std)]
+use no_std_compat::prelude::v1::format;
+use no_std_compat::vec::Vec;
+use no_std_compat::prelude::v1::vec;
+
 use blake2::{Blake2b, Digest};
 use common::bigint::BigInteger;
 use hkdf::Hkdf;

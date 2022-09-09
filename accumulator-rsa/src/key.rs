@@ -1,12 +1,24 @@
+#[cfg(no_std)]
+use no_std_compat::prelude::v1::format;
+use no_std_compat::vec::Vec;
+use no_std_compat::prelude::v1::vec;
+
+
 use crate::{b2fa, FACTOR_SIZE};
 use common::{
     bigint::BigInteger,
     error::{AccumulatorError, AccumulatorErrorKind},
 };
 #[cfg(not(test))]
-use rayon::prelude::*;
+//use rayon::prelude::*;
 use std::convert::TryFrom;
 use zeroize::Zeroize;
+
+/// BigUint to fixed array
+pub fn b2fa_key(expected_size: usize) -> Vec<u8> {
+    let mut t = vec![0u8; expected_size];
+    t
+}
 
 /// Represents the safe primes used in the modulus for the accumulator
 #[derive(Debug, Eq, PartialEq)]
@@ -106,7 +118,7 @@ fn gen_primes() -> (BigInteger, BigInteger) {
     use crate::MIN_SIZE_PRIME;
     let mut p: Vec<BigInteger> = (0..2)
         .collect::<Vec<usize>>()
-        .par_iter()
+        .iter() //.par_iter()
         .map(|_| BigInteger::generate_safe_prime(MIN_SIZE_PRIME))
         .collect();
     let p1 = p.remove(0);
@@ -122,3 +134,5 @@ fn gen_primes() -> (BigInteger, BigInteger) {
     let q = BigInteger::from("149253707427499607752440533538420296779167710000842829107795675900185486091323606384260179778233711456748787559527972657213022998726578510459854530854900733457277643303592216900588246498239579922221956281290954735600574251392801029419096160964874150455156365996536205549377586240264971604869515447059744740119");
     (p, q)
 }
+
+

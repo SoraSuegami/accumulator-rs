@@ -1,3 +1,8 @@
+#[cfg(no_std)]
+use no_std_compat::prelude::v1::format;
+use no_std_compat::vec::Vec;
+use no_std_compat::prelude::v1::vec;
+
 use crate::{accumulator::Accumulator, b2fa, nonwitness::NonMembershipWitness, Poke2Proof, FACTOR_SIZE, MEMBER_SIZE};
 use common::{bigint::BigInteger, error::*, Field};
 use std::convert::TryFrom;
@@ -42,9 +47,10 @@ impl NonMembershipProof {
 
     #[cfg(debug_assertions)]
     fn check_witness(witness: &NonMembershipWitness, accumulator: &Accumulator) {
-        use rayon::prelude::*;
+        //use rayon::prelude::*;
 
-        let x_hat: BigInteger = accumulator.members.par_iter().product();
+        //let x_hat: BigInteger = accumulator.members.par_iter().product();
+        let x_hat: BigInteger = accumulator.members.iter().product();
         let gcd_res = x_hat.bezouts_coefficients(&witness.x);
         let expected_b = accumulator.generator.mod_inverse(&accumulator.modulus).mod_exp(&gcd_res.b, &accumulator.modulus);
         assert_eq!(expected_b, witness.b);

@@ -1,9 +1,16 @@
+#[cfg(no_std)]
+use no_std_compat::prelude::v1::format;
+use no_std_compat::vec::Vec;
+use no_std_compat::prelude::v1::vec;
+
 use super::GcdResult;
 use crate::error::AccumulatorError;
-use num_bigint::{BigInt, RandBigInt, ToBigInt, Sign};
+//use num_bigint::{BigInt, RandBigInt, ToBigInt, Sign};
+use num_bigint::{BigInt, ToBigInt, Sign};
 use num_traits::{Zero, One, Signed, Num};
 use num_integer::Integer;
-use rand::prelude::*;
+//use rand::prelude::*;
+
 use std::{
     ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign, Rem, RemAssign},
     cmp::Ordering,
@@ -220,18 +227,26 @@ impl RustBigInt {
 
     /// Generate a prime number of `size` bits
     pub fn generate_prime(size: usize) -> Self {
-        Self { value: glass_pumpkin::prime::new(size).unwrap().to_bigint().unwrap() }
+        Self { 
+        	//value: glass_pumpkin::prime::new(size).unwrap().to_bigint().unwrap()
+        	value: BigInt::one() 
+        }
     }
 
     /// Generate a safe prime number of `size` bits
     pub fn generate_safe_prime(size: usize) -> Self {
-        Self { value: glass_pumpkin::safe_prime::new(size).unwrap().to_bigint().unwrap() }
+        Self { 
+        	//value: glass_pumpkin::safe_prime::new(size).unwrap().to_bigint().unwrap()
+        	value: BigInt::one()
+        }
     }
 
     /// Generate a random value less than `self`
     pub fn rand_range(&self) -> Self {
-        let mut rng = thread_rng();
-        let value = rng.gen_bigint_range(&BigInt::zero(), &self.value);
+        //let mut rng = thread_rng();
+        //let value = rng.gen_bigint_range(&BigInt::zero(), &self.value);
+        let value = BigInt::zero();
+        //Self { value }
         Self { value }
     }
 
@@ -240,7 +255,8 @@ impl RustBigInt {
         if self.value.is_negative() {
             return false;
         }
-        glass_pumpkin::prime::check(&self.value.to_biguint().unwrap())
+        //glass_pumpkin::prime::check(&self.value.to_biguint().unwrap())
+        true
     }
 
     /// Computes Bézout's coefficients and returns `s` and `t`

@@ -1,27 +1,37 @@
 #![deny(
 // warnings,
-missing_docs,
+//missing_docs,
 unsafe_code,
 unused_import_braces,
 unused_lifetimes,
 unused_qualifications,
 )]
+#![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "nightly", feature(doc_cfg))]
+
 //! This crate is only meant to be used internally across
 //! accumulator types.
 
+#[cfg(not(std))]
+extern crate no_std_compat as std;
+use no_std_compat::vec::Vec;
+use no_std_compat::prelude::v1::vec;
+use no_std_compat::prelude::v1::format;
+
 /// Common macros
 pub mod macros;
-/// Multiprecision Big Integer Implementation
-pub mod bigint;
+
 /// Accumulator errors that can be thrown
 pub mod error;
 
-#[cfg(not(any(feature = "openssl", feature = "rust-gmp", feature = "num-bigint")))]
+/// Multiprecision Big Integer Implementation
+pub mod bigint;
+
+#[cfg(not(any(feature = "bi-ossl", feature = "rust-gmp", feature = "num-bigint")))]
 compile_error!("A big number library must be chosen: either bigint-rust, openssl, or rust-gmp");
-#[cfg(any(all(feature = "openssl", feature = "rust-gmp", feature = "bigint-rust"),
-all(feature = "openssl", feature = "rust-gmp"),
-all(feature = "openssl", feature = "bigint-rust"),
+#[cfg(any(all(feature = "bi-ossl", feature = "rust-gmp", feature = "bigint-rust"),
+all(feature = "bi-ossl", feature = "rust-gmp"),
+all(feature = "bi-ossl", feature = "bigint-rust"),
 all(feature = "bigint-rust", feature = "rust-gmp")))]
 compile_error!("Only one big number library must be chosen: either bigint-rust, openssl, or rust-gmp");
 

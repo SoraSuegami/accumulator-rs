@@ -1,3 +1,8 @@
+#[cfg(no_std)]
+use no_std_compat::prelude::v1::format;
+use no_std_compat::vec::Vec;
+use no_std_compat::prelude::v1::vec;
+
 use crate::{
     accumulator::Accumulator, b2fa, hash::hash_to_prime, key::AccumulatorSecretKey, FACTOR_SIZE,
     MEMBER_SIZE,
@@ -7,7 +12,7 @@ use common::{
     error::{AccumulatorError, AccumulatorErrorKind},
     Field,
 };
-use rayon::prelude::*;
+//use rayon::prelude::*;
 use std::convert::TryFrom;
 
 /// A witness that can be used for membership proofs
@@ -34,7 +39,8 @@ impl MembershipWitness {
         }
         let exp = accumulator
             .members
-            .par_iter()
+            //.par_iter()
+            .iter()
             .cloned()
             .filter(|b| b != x)
             .product();
@@ -71,11 +77,14 @@ impl MembershipWitness {
         let f = common::Field::new(&totient);
         let exp = accumulator
             .members
-            .par_iter()
+            //.par_iter()
+            .iter()
             .cloned()
             .filter(|b| b != x)
-            .reduce(|| BigInteger::from(1u32), |a, b| f.mul(&a, &b));
-        let u = (&accumulator.generator).mod_exp(&exp, &accumulator.modulus);
+            //.reduce(|| BigInteger::from(1u32), |a, b| f.mul(&a, &b));
+            .reduce(|_, _| BigInteger::from(1u32));
+        	
+        let u = (&accumulator.generator).mod_exp(&exp.unwrap(), &accumulator.modulus);
         Self { u, x: x.clone() }
     }
 
@@ -117,12 +126,14 @@ impl MembershipWitness {
         let f = Field::new(&new_acc.modulus);
 
         if !additions.is_empty() {
-            let x_a = additions.into_par_iter().product();
+            //let x_a = additions.into_par_iter().product();
+            let x_a = additions.into_iter().product();
             self.u = f.exp(&self.u, &x_a);
         }
 
         if !deletions.is_empty() {
-            let x_hat = deletions.into_par_iter().product();
+            //let x_hat = deletions.into_par_iter().product();
+            let x_hat = deletions.into_iter().product();
             let gcd_res = self.x.bezouts_coefficients(&x_hat);
             assert_eq!(gcd_res.value, BigInteger::from(1u32));
 

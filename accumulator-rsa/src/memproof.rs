@@ -1,3 +1,8 @@
+#[cfg(no_std)]
+use no_std_compat::prelude::v1::format;
+use no_std_compat::vec::Vec;
+use no_std_compat::prelude::v1::vec;
+
 use crate::{accumulator::Accumulator, common::error::*, memwitness::MembershipWitness, Poke2Proof};
 use std::convert::TryFrom;
 

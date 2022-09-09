@@ -1,6 +1,11 @@
+#[cfg(no_std)]
+use no_std_compat::prelude::v1::format;
+use no_std_compat::vec::Vec;
+use no_std_compat::prelude::v1::vec;
+
 use crate::{accumulator::Accumulator, b2fa, hash_to_prime, FACTOR_SIZE, MEMBER_SIZE};
 use common::{bigint::BigInteger, Field, error::*};
-use rayon::prelude::*;
+//use rayon::prelude::*;
 
 /// A witness that can be used for non-membership proofs
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -26,7 +31,8 @@ impl NonMembershipWitness {
             ));
         }
         let f = Field::new(&accumulator.modulus);
-        let s: BigInteger = accumulator.members.par_iter().product();
+        //let s: BigInteger = accumulator.members.par_iter().product();
+        let s: BigInteger = accumulator.members.iter().product();
         let gcd_res = s.bezouts_coefficients(x);
         let b = f.exp(&f.inv(&accumulator.generator), &gcd_res.b);
         debug_assert_eq!(f.exp(&b, &x), f.mul(&f.inv(&accumulator.generator), &f.exp(&accumulator.value, &gcd_res.a)));
@@ -70,7 +76,8 @@ impl NonMembershipWitness {
         let f = Field::new(&new_acc.modulus);
 
         if !deletions.is_empty() {
-            let x_hat = deletions.into_par_iter().product();
+            //let x_hat = deletions.into_par_iter().product();
+            let x_hat = deletions.into_iter().product();
             let r = &(&x_hat * &self.a) / &self.x;
             self.a = (&self.a * &x_hat) - (&r * &self.x);
             self.b = f.mul(&self.b, &f.exp(&f.inv(&new_acc.value), &r));
@@ -82,7 +89,8 @@ impl NonMembershipWitness {
         // Section 4.2 in
         // <https://www.cs.purdue.edu/homes/ninghui/papers/accumulator_acns07.pdf>
         if !additions.is_empty() {
-            let x_hat: BigInteger = additions.into_par_iter().product();
+            //let x_hat: BigInteger = additions.into_par_iter().product();
+            let x_hat: BigInteger = additions.into_iter().product();
             let gcd_result = x_hat.bezouts_coefficients(&self.x);
 
             debug_assert_eq!(BigInteger::from(1), &x_hat * &gcd_result.a + &self.x * &gcd_result.b);
@@ -200,7 +208,9 @@ mod tests {
     #[test]
     fn big_updates() {
         let key = SecretKey::default();
-        let members = (0..10).collect::<Vec<_>>().par_iter().map(|_| BigInteger::generate_prime(MEMBER_SIZE_BITS)).collect::<Vec<BigInteger>>();
+        //let members = (0..10).collect::<Vec<_>>().par_iter().map(|_| BigInteger::generate_prime(MEMBER_SIZE_BITS)).collect::<Vec<BigInteger>>();
+        let members = (0..10).collect::<Vec<_>>().iter().map(|_| BigInteger::generate_prime(MEMBER_SIZE_BITS)).collect::<Vec<BigInteger>>();
+        
         let x = BigInteger::generate_prime(MEMBER_SIZE_BITS);
 
         let acc = Accumulator::with_prime_members(&key, &members).unwrap();

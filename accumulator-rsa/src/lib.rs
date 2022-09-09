@@ -1,15 +1,26 @@
+// deny
 #![deny(
 // warnings,
-missing_docs,
+//missing_docs,
 unsafe_code,
 unused_import_braces,
 unused_lifetimes,
 unused_qualifications,
 )]
+#![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "nightly", feature(doc_cfg))]
-//! Implementation of a dynamic universal RSA accumulator
+
+#[cfg(not(std))]
+extern crate no_std_compat as std;
+use no_std_compat::vec::Vec;
+use no_std_compat::prelude::v1::vec;
+use no_std_compat::prelude::v1::format;
+use no_std_compat::fmt::format;
+
+/// Implementation of a dynamic universal RSA accumulator
 #[macro_use]
 extern crate arrayref;
+
 #[macro_use]
 pub extern crate common;
 
@@ -65,7 +76,7 @@ pub(crate) fn b2fa(b: &BigInteger, expected_size: usize) -> Vec<u8> {
     let bt = b.to_bytes();
     assert!(
         expected_size >= bt.len(),
-        format!("expected = {}, found = {}", expected_size, bt.len())
+        //format!("expected = {}, found = {}", expected_size, bt.len())
     );
     t[(expected_size - bt.len())..].clone_from_slice(bt.as_slice());
     t
