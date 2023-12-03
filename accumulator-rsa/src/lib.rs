@@ -12,10 +12,10 @@ unused_qualifications,
 
 #[cfg(not(std))]
 extern crate no_std_compat as std;
-use no_std_compat::vec::Vec;
-use no_std_compat::prelude::v1::vec;
-use no_std_compat::prelude::v1::format;
 use no_std_compat::fmt::format;
+use no_std_compat::prelude::v1::format;
+use no_std_compat::prelude::v1::vec;
+use no_std_compat::vec::Vec;
 
 /// Implementation of a dynamic universal RSA accumulator
 #[macro_use]
@@ -38,13 +38,13 @@ pub mod hash;
 pub mod key;
 /// Proofs of set membership
 pub mod memproof;
-/// Proofs of set non-membership
-pub mod nonmemproof;
-/// Provides non-membership witness methods
-pub mod nonwitness;
 /// Provides witness methods
 pub mod memwitness;
-
+/// Proofs of set non-membership
+// pub mod nonmemproof;
+/// Provides non-membership witness methods
+// pub mod nonwitness;
+use crate::hash::hash_to_generator;
 use crate::hash::hash_to_prime;
 use blake2::{digest::Digest, Blake2b};
 use common::{
@@ -52,7 +52,6 @@ use common::{
     error::{AccumulatorError, AccumulatorErrorKind},
 };
 use std::convert::TryFrom;
-use crate::hash::hash_to_generator;
 
 /// Convenience module to include when using
 pub mod prelude {
@@ -65,8 +64,8 @@ pub mod prelude {
         key::AccumulatorSecretKey,
         memproof::MembershipProof,
         memwitness::MembershipWitness,
-        nonmemproof::NonMembershipProof,
-        nonwitness::NonMembershipWitness,
+        // nonmemproof::NonMembershipProof,
+        // nonwitness::NonMembershipWitness,
     };
 }
 
@@ -82,7 +81,12 @@ pub(crate) fn b2fa(b: &BigInteger, expected_size: usize) -> Vec<u8> {
     t
 }
 
-pub(crate) fn hashed_generator<B: AsRef<[u8]>>(u: &BigInteger, a: &BigInteger, n: &BigInteger, nonce: B) -> BigInteger {
+pub(crate) fn hashed_generator<B: AsRef<[u8]>>(
+    u: &BigInteger,
+    a: &BigInteger,
+    n: &BigInteger,
+    nonce: B,
+) -> BigInteger {
     let mut transcript = u.to_bytes();
     transcript.append(&mut a.to_bytes());
     transcript.extend_from_slice(nonce.as_ref());
@@ -90,17 +94,14 @@ pub(crate) fn hashed_generator<B: AsRef<[u8]>>(u: &BigInteger, a: &BigInteger, n
     hash_to_generator(transcript.as_slice(), &n)
 }
 
-/// Represents a Proof of Knowledge of Exponents 2 from section 3.2 in
+/// Represents a Proof of Knowledge of Exponents 1 from section 3.2 in
 /// <https://eprint.iacr.org/2018/1188.pdf>
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub(crate) struct Poke2Proof {
-    u: BigInteger,
-    z: BigInteger,
+pub struct PokeProof {
     q: BigInteger,
-    r: BigInteger,
 }
 
-impl Poke2Proof {
+impl PokeProof {
     /// The size of this proof serialized
     pub const SIZE_BYTES: usize = 6 * FACTOR_SIZE + MEMBER_SIZE;
 
@@ -129,93 +130,101 @@ impl Poke2Proof {
         nonce: B,
     ) -> Self {
         let f = common::Field::new(n);
-        let z = f.exp(&g, x);
-        let (l, alpha) = Self::get_prime_and_alpha(&u, &a, &z, nonce.as_ref());
+        // let z = f.exp(&g, x);
+        let l = Self::get_prime(&x, &u, &a, nonce.as_ref());
 
         // q = x / l
-        // r = x % l
-        let (whole, r) = BigInteger::div_rem(&x, &l);
+        let (whole, _) = BigInteger::div_rem(&x, &l);
 
-        // Q = u ^ q * g ^ {q * alpha}
-        let q = f.mul(&f.exp(&u, &whole), &f.exp(&g, &(&alpha * &whole)));
-        Self {
-            u: u.clone(),
-            q,
-            r,
-            z,
-        }
+        // Q = u ^ q
+        let q = f.exp(&u, &whole);
+        Self { q }
     }
 
-    /// Verify a proof of knowledge of exponents
-    pub fn verify<B: AsRef<[u8]>>(&self, value: &BigInteger, n: &BigInteger, nonce: B) -> bool {
-        let nonce = nonce.as_ref();
-        let g = hashed_generator(&self.u, &value, &n, nonce);
-        self.check(&g, &value, &n, nonce)
-    }
+    // /// Verify a proof of knowledge of exponents
+    // pub fn verify<B: AsRef<[u8]>>(&self, value: &BigInteger, n: &BigInteger, nonce: B) -> bool {
+    //     let nonce = nonce.as_ref();
+    //     let g = hashed_generator(&self.u, &value, &n, nonce);
+    //     self.check(&g, &value, &n, nonce)
+    // }
 
     /// Same as `verify` but allow custom `g`
-    pub fn check<B: AsRef<[u8]>>(&self, g: &BigInteger, value: &BigInteger, n: &BigInteger, nonce: B) -> bool {
+    /// u^x = a mod n
+    pub fn verify<B: AsRef<[u8]>>(
+        &self,
+        x: &BigInteger,
+        u: &BigInteger,
+        a: &BigInteger,
+        n: &BigInteger,
+        nonce: B,
+    ) -> bool {
         let f = common::Field::new(n);
         let nonce = nonce.as_ref();
-        let (l, alpha) = Self::get_prime_and_alpha(&self.u, &value, &self.z, nonce);
+        let l = Self::get_prime(&x, &u, &a, nonce.as_ref());
 
-        // Q ^ l
-        // let p1 = f.exp(&self.q, &l);
-        // u ^ r
-        // let p2 = f.exp(&self.u, &self.r);
-        // alpha * r
-        // g ^ {alpha * r}
-        // let p3 = f.exp(&g, &(&alpha * &self.r));
+        // r = x mod l
+        let (_, r) = BigInteger::div_rem(&x, &l);
 
-        // Q^l * u^r * g^{x * r}
-        // let left = f.mul(&p1, &f.mul(&p2, &p3));
-        let left = f.mul(&f.mul(&f.exp(&self.q, &l), &f.exp(&self.u, &self.r)), &f.exp(g, &(&alpha * &self.r)));
-
-        // v * z^x
-        let right = f.mul(&value, &f.exp(&self.z, &alpha));
-
-        left == right
+        // Q^l * u^r = a mod n
+        let left = f.mul(&f.exp(&self.q, &l), &f.mul(&u, &r));
+        left == *a
     }
 
     /// Serialize this to bytes
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut output = b2fa(&self.u, 2 * FACTOR_SIZE);
-        output.append(&mut b2fa(&self.z, 2 * FACTOR_SIZE));
-        output.append(&mut b2fa(&self.q, 2 * FACTOR_SIZE));
-        output.append(&mut b2fa(&self.r, MEMBER_SIZE));
+        let mut output = b2fa(&self.q, 2 * FACTOR_SIZE);
+        // output.append(&mut b2fa(&self.z, 2 * FACTOR_SIZE));
+        // output.append(&mut b2fa(&self.q, 2 * FACTOR_SIZE));
+        // output.append(&mut b2fa(&self.r, MEMBER_SIZE));
         output
     }
 
-    fn get_prime_and_alpha(u: &BigInteger, a: &BigInteger, z: &BigInteger, nonce: &[u8]) -> (BigInteger, BigInteger) {
-        let mut data = u.to_bytes();
+    // fn get_prime_and_alpha(
+    //     u: &BigInteger,
+    //     a: &BigInteger,
+    //     z: &BigInteger,
+    //     nonce: &[u8],
+    // ) -> (BigInteger, BigInteger) {
+    //     let mut data = u.to_bytes();
+    //     data.append(&mut a.to_bytes());
+    //     data.append(&mut z.to_bytes());
+    //     data.extend_from_slice(nonce);
+
+    //     // l = H2P( u || A || z || n1 )
+    //     let l = hash_to_prime(data.as_slice());
+
+    //     data.append(&mut l.to_bytes());
+    //     // Fiat-Shamir
+    //     // alpha = H(u || A || z || n1 || l)
+    //     let alpha = BigInteger::try_from(Blake2b::digest(data.as_slice()).as_slice()).unwrap();
+    //     (l, alpha)
+    // }
+
+    fn get_prime(x: &BigInteger, u: &BigInteger, a: &BigInteger, nonce: &[u8]) -> BigInteger {
+        let mut data = x.to_bytes();
+        data.append(&mut u.to_bytes());
         data.append(&mut a.to_bytes());
-        data.append(&mut z.to_bytes());
         data.extend_from_slice(nonce);
 
-        // l = H2P( u || A || z || n1 )
+        // l = H2P( x || u || A || n1 )
         let l = hash_to_prime(data.as_slice());
-
-        data.append(&mut l.to_bytes());
-        // Fiat-Shamir
-        // alpha = H(u || A || z || n1 || l)
-        let alpha = BigInteger::try_from(Blake2b::digest(data.as_slice()).as_slice()).unwrap();
-        (l, alpha)
+        l
     }
 }
 
-impl TryFrom<&[u8]> for Poke2Proof {
+impl TryFrom<&[u8]> for PokeProof {
     type Error = AccumulatorError;
 
     fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
         if data.len() != Self::SIZE_BYTES {
             return Err(AccumulatorErrorKind::SerializationError.into());
         }
-        let u = BigInteger::try_from(&data[..(2 * FACTOR_SIZE)])?;
-        let z = BigInteger::try_from(&data[(2 * FACTOR_SIZE)..(4 * FACTOR_SIZE)])?;
-        let q = BigInteger::try_from(&data[(4 * FACTOR_SIZE)..(6 * FACTOR_SIZE)])?;
-        let r = BigInteger::try_from(&data[(6 * FACTOR_SIZE)..])?;
-        Ok(Self { u, z, q, r })
+        let q = BigInteger::try_from(&data[..(2 * FACTOR_SIZE)])?;
+        // let z = BigInteger::try_from(&data[(2 * FACTOR_SIZE)..(4 * FACTOR_SIZE)])?;
+        // let q = BigInteger::try_from(&data[(4 * FACTOR_SIZE)..(6 * FACTOR_SIZE)])?;
+        // let r = BigInteger::try_from(&data[(6 * FACTOR_SIZE)..])?;
+        Ok(Self { q })
     }
 }
 
-serdes_impl!(Poke2Proof);
+serdes_impl!(PokeProof);
