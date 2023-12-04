@@ -14,8 +14,8 @@ use std::convert::TryFrom;
 /// A witness that can be used for membership proofs
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct MembershipWitness {
-    pub(crate) u: BigInteger,
-    pub(crate) x: BigInteger,
+    pub u: BigInteger,
+    pub x: BigInteger,
 }
 
 impl MembershipWitness {

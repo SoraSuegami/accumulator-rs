@@ -1,7 +1,7 @@
 #[cfg(no_std)]
 use no_std_compat::prelude::v1::format;
-use no_std_compat::vec::Vec;
 use no_std_compat::prelude::v1::vec;
+use no_std_compat::vec::Vec;
 
 use blake2::{Blake2b, Digest};
 use common::bigint::BigInteger;
@@ -11,7 +11,7 @@ use std::convert::TryFrom;
 /// Hashes `input` to a prime.
 /// See Section 7 in
 /// <https://eprint.iacr.org/2018/1188.pdf>
-pub(crate) fn hash_to_prime<B: AsRef<[u8]>>(input: B) -> BigInteger {
+pub fn hash_to_prime<B: AsRef<[u8]>>(input: B) -> BigInteger {
     let mut input = input.as_ref().to_vec();
     let mut i = 1usize;
     let offset = input.len();
