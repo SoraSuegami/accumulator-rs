@@ -1,14 +1,10 @@
 #[cfg(no_std)]
 use no_std_compat::prelude::v1::format;
-use no_std_compat::vec::Vec;
 use no_std_compat::prelude::v1::vec;
-
+use no_std_compat::vec::Vec;
 
 use crate::{b2fa, FACTOR_SIZE};
-use common::{
-    bigint::BigInteger,
-    error::{AccumulatorError, AccumulatorErrorKind},
-};
+use common::{bigint::BigInteger, error::AccumulatorError};
 #[cfg(not(test))]
 //use rayon::prelude::*;
 use std::convert::TryFrom;
@@ -75,14 +71,11 @@ impl TryFrom<&[u8]> for AccumulatorSecretKey {
 
     fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
         if data.len() != 2 * FACTOR_SIZE {
-            return Err(AccumulatorError::from_msg(
-                AccumulatorErrorKind::InvalidType,
-                format!(
-                    "Invalid bytes, expected {}, got {}",
-                    2 * FACTOR_SIZE,
-                    data.len()
-                ),
-            ));
+            return Err(AccumulatorError::InvalidType(format!(
+                "Invalid bytes, expected {}, got {}",
+                2 * FACTOR_SIZE,
+                data.len()
+            )));
         }
         let p = BigInteger::try_from(&data[..FACTOR_SIZE])?;
         let q = BigInteger::try_from(&data[FACTOR_SIZE..])?;
@@ -134,5 +127,3 @@ fn gen_primes() -> (BigInteger, BigInteger) {
     let q = BigInteger::from("149253707427499607752440533538420296779167710000842829107795675900185486091323606384260179778233711456748787559527972657213022998726578510459854530854900733457277643303592216900588246498239579922221956281290954735600574251392801029419096160964874150455156365996536205549377586240264971604869515447059744740119");
     (p, q)
 }
-
-

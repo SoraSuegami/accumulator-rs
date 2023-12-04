@@ -1,16 +1,14 @@
-#[cfg(no_std)]
-use no_std_compat::prelude::v1::format;
-use no_std_compat::vec::Vec;
-use no_std_compat::prelude::v1::vec;
+// use alloc::string::ToString;
+// #[cfg(no_std)]
+// use no_std_compat::prelude::v1::format;
+// use no_std_compat::prelude::v1::vec;
+// use no_std_compat::vec::Vec;
 
 use crate::{
     b2fa, hash::hash_to_prime, key::AccumulatorSecretKey, FACTOR_SIZE, MEMBER_SIZE,
     MEMBER_SIZE_BITS, MIN_BYTES,
 };
-use common::{
-    bigint::BigInteger,
-    error::{AccumulatorError, AccumulatorErrorKind},
-};
+use common::{bigint::BigInteger, error::AccumulatorError};
 //use rayon::prelude::*;
 use std::{
     collections::BTreeSet,
@@ -87,9 +85,8 @@ impl Accumulator {
         let members: BTreeSet<BigInteger> = m.iter().cloned().collect();
         //if members.par_iter().any(|b| !b.is_prime()) {
         if members.iter().any(|b| !b.is_prime()) {
-            return Err(AccumulatorError::from_msg(
-                AccumulatorErrorKind::InvalidMemberSupplied,
-                "Some values are not prime and cannot be added",
+            return Err(AccumulatorError::InvalidMemberSupplied(
+                "Some values are not prime and cannot be added".to_string(),
             ));
         }
         Ok(Self::_add_members(key, members))
@@ -106,7 +103,9 @@ impl Accumulator {
     pub fn add_prime_members_assign(&mut self, m: &[BigInteger]) -> Result<(), AccumulatorError> {
         //if m.par_iter().any(|b| !b.is_prime() || self.members.contains(&b)) {
         if m.iter().any(|b| !b.is_prime() || self.members.contains(&b)) {
-            return Err(AccumulatorError::from_msg(AccumulatorErrorKind::InvalidMemberSupplied, "Some values are not prime and already exist in the set"));
+            return Err(AccumulatorError::InvalidMemberSupplied(
+                "Some values are not prime and already exist in the set".to_string(),
+            ));
         }
 
         for i in m {
@@ -129,7 +128,7 @@ impl Accumulator {
             .iter() //.par_iter()
             .cloned()
             //.reduce(|| BigInteger::from(1u32), |v, m| v.mod_mul(&m, &totient));
-            .reduce(|_, _| BigInteger::from(1u32)); 
+            .reduce(|_, _| BigInteger::from(1u32));
         let modulus = key.modulus();
         let generator = random_qr(&modulus);
         //let value = (&generator).mod_exp(&exp, &modulus);
@@ -165,15 +164,13 @@ impl Accumulator {
     /// Add a prime value an update this accumulator
     pub fn insert_prime_assign(&mut self, value: &BigInteger) -> Result<(), AccumulatorError> {
         if !value.is_prime() {
-            return Err(AccumulatorError::from_msg(
-                AccumulatorErrorKind::InvalidMemberSupplied,
-                "value is not prime",
+            return Err(AccumulatorError::InvalidMemberSupplied(
+                "value is not prime".to_string(),
             ));
         }
         if value.bits() < MEMBER_SIZE_BITS {
-            return Err(AccumulatorError::from_msg(
-                AccumulatorErrorKind::InvalidMemberSupplied,
-                "value is not sufficiently large to be safely accumulated",
+            return Err(AccumulatorError::InvalidMemberSupplied(
+                "value is not sufficiently large to be safely accumulated".to_string(),
             ));
         }
         self._insert(value)
@@ -181,7 +178,10 @@ impl Accumulator {
 
     fn _insert(&mut self, value: &BigInteger) -> Result<(), AccumulatorError> {
         if self.members.contains(&value) {
-            return Err(AccumulatorErrorKind::DuplicateValueSupplied.into());
+            return Err(AccumulatorError::DuplicateValueSupplied(format!(
+                "{} is duplicated",
+                value
+            )));
         }
         self.members.insert(value.clone());
         self.value.mod_exp_assign(&value, &self.modulus);
@@ -237,7 +237,10 @@ impl Accumulator {
         value: &BigInteger,
     ) -> Result<(), AccumulatorError> {
         if !self.members.contains(&value) {
-            return Err(AccumulatorErrorKind::InvalidMemberSupplied.into());
+            return Err(AccumulatorError::InvalidMemberSupplied(format!(
+                "{} is not in the set",
+                value
+            )));
         }
         let t = key.totient();
         self.members.remove(&value);
@@ -298,10 +301,11 @@ impl TryFrom<&[u8]> for Accumulator {
 
     fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
         if data.len() < MIN_BYTES {
-            return Err(AccumulatorError::from_msg(
-                AccumulatorErrorKind::InvalidType,
-                format!("Expected size {}, found {}", MIN_BYTES, data.len()),
-            ));
+            return Err(AccumulatorError::InvalidType(format!(
+                "Expected size {}, found {}",
+                MIN_BYTES,
+                data.len()
+            )));
         }
 
         let mut offset = 0;

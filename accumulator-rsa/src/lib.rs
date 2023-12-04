@@ -7,15 +7,15 @@ unused_import_braces,
 unused_lifetimes,
 unused_qualifications,
 )]
-#![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(feature = "nightly", feature(doc_cfg))]
+// #![cfg_attr(not(feature = "std"), no_std)]
+// #![cfg_attr(feature = "nightly", feature(doc_cfg))]
 
-#[cfg(not(std))]
-extern crate no_std_compat as std;
-use no_std_compat::fmt::format;
-use no_std_compat::prelude::v1::format;
-use no_std_compat::prelude::v1::vec;
-use no_std_compat::vec::Vec;
+// #[cfg(not(std))]
+// extern crate no_std_compat as std;
+// use no_std_compat::fmt::format;
+// use no_std_compat::prelude::v1::format;
+// use no_std_compat::prelude::v1::vec;
+// use no_std_compat::vec::Vec;
 
 /// Implementation of a dynamic universal RSA accumulator
 #[macro_use]
@@ -47,10 +47,7 @@ pub mod memwitness;
 use crate::hash::hash_to_generator;
 use crate::hash::hash_to_prime;
 use blake2::{digest::Digest, Blake2b};
-use common::{
-    bigint::BigInteger,
-    error::{AccumulatorError, AccumulatorErrorKind},
-};
+use common::{bigint::BigInteger, error::AccumulatorError};
 use std::convert::TryFrom;
 
 /// Convenience module to include when using
@@ -217,7 +214,11 @@ impl TryFrom<&[u8]> for PokeProof {
 
     fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
         if data.len() != Self::SIZE_BYTES {
-            return Err(AccumulatorErrorKind::SerializationError.into());
+            return Err(AccumulatorError::SerializationError(format!(
+                "Invalid bytes, expected {}, got {}",
+                Self::SIZE_BYTES,
+                data.len()
+            )));
         }
         let q = BigInteger::try_from(&data[..(2 * FACTOR_SIZE)])?;
         // let z = BigInteger::try_from(&data[(2 * FACTOR_SIZE)..(4 * FACTOR_SIZE)])?;

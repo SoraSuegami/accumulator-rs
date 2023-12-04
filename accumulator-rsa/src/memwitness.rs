@@ -1,17 +1,13 @@
 #[cfg(no_std)]
 use no_std_compat::prelude::v1::format;
-use no_std_compat::vec::Vec;
 use no_std_compat::prelude::v1::vec;
+use no_std_compat::vec::Vec;
 
 use crate::{
     accumulator::Accumulator, b2fa, hash::hash_to_prime, key::AccumulatorSecretKey, FACTOR_SIZE,
     MEMBER_SIZE,
 };
-use common::{
-    bigint::BigInteger,
-    error::{AccumulatorError, AccumulatorErrorKind},
-    Field,
-};
+use common::{bigint::BigInteger, error::AccumulatorError, Field};
 //use rayon::prelude::*;
 use std::convert::TryFrom;
 
@@ -32,9 +28,8 @@ impl MembershipWitness {
     /// Return a new membership witness with a value that is already prime
     pub fn new_prime(accumulator: &Accumulator, x: &BigInteger) -> Result<Self, AccumulatorError> {
         if !accumulator.members.contains(&x) {
-            return Err(AccumulatorError::from_msg(
-                AccumulatorErrorKind::InvalidMemberSupplied,
-                "value is not in the accumulator",
+            return Err(AccumulatorError::InvalidMemberSupplied(
+                "value is not in the accumulator".to_string(),
             ));
         }
         let exp = accumulator
@@ -83,7 +78,7 @@ impl MembershipWitness {
             .filter(|b| b != x)
             //.reduce(|| BigInteger::from(1u32), |a, b| f.mul(&a, &b));
             .reduce(|_, _| BigInteger::from(1u32));
-        	
+
         let u = (&accumulator.generator).mod_exp(&exp.unwrap(), &accumulator.modulus);
         Self { u, x: x.clone() }
     }
@@ -110,10 +105,16 @@ impl MembershipWitness {
         new_acc: &Accumulator,
     ) -> Result<(), AccumulatorError> {
         if !new_acc.members.contains(&self.x) {
-            return Err(AccumulatorErrorKind::InvalidMemberSupplied.into());
+            return Err(AccumulatorError::InvalidMemberSupplied(format!(
+                "{} is not a member of the new accumulator",
+                self.x
+            )));
         }
         if !old_acc.members.contains(&self.x) {
-            return Err(AccumulatorErrorKind::InvalidMemberSupplied.into());
+            return Err(AccumulatorError::InvalidMemberSupplied(format!(
+                "{} is not a member of the old accumulator",
+                self.x
+            )));
         }
 
         let additions: Vec<&BigInteger> = new_acc.members.difference(&old_acc.members).collect();
@@ -159,7 +160,11 @@ impl TryFrom<&[u8]> for MembershipWitness {
 
     fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
         if data.len() != FACTOR_SIZE * 2 + MEMBER_SIZE {
-            return Err(AccumulatorErrorKind::SerializationError.into());
+            return Err(AccumulatorError::SerializationError(format!(
+                "Invalid bytes, expected {}, got {}",
+                FACTOR_SIZE * 2 + MEMBER_SIZE,
+                data.len()
+            )));
         }
         let u = BigInteger::try_from(&data[..(FACTOR_SIZE * 2)])?;
         let x = BigInteger::try_from(&data[(FACTOR_SIZE * 2)..])?;

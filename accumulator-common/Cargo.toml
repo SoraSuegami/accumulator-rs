@@ -10,7 +10,7 @@ version = "0.1.0"
 
 [features]
 default = ["std"]
-std = [ "no-std-compat/std" ]
+std = ["no-std-compat/std"]
 bi-rust = ["num-traits", "num-integer", "num-bigint"]
 
 #default = ["bi-rust"]
@@ -21,16 +21,23 @@ bi-rust = ["num-traits", "num-integer", "num-bigint"]
 [dependencies]
 #codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive",] }
 
-num-traits = { version = "0.2", optional = true,  default-features = false }
+num-traits = { version = "0.2", optional = true, default-features = false }
 num-integer = { version = "0.1", optional = true, default-features = false }
 num-bigint = { version = "0.3", optional = true, default-features = false }
-zeroize = { version = "1.5.7", default-features = false, features = ["zeroize_derive"] }
+zeroize = { version = "1.5.7", default-features = false, features = [
+    "zeroize_derive",
+] }
 
-arrayref = { version = "0.3", default-features = false}
-blake2 = { version = "0.8", default-features = false}
-failure = { version = "0.1.8", default-features = false, features = ["derive",]}
+arrayref = { version = "0.3", default-features = false }
+blake2 = { version = "0.8", default-features = false }
+# failure = { version = "0.1.8", default-features = false, features = ["derive",]}
+thiserror = "1.0"
 
-no-std-compat = { version = "0.4.1", default-features = false, features = ["compat_hash", "compat_sync", "alloc"] }
+no-std-compat = { version = "0.4.1", default-features = false, features = [
+    "compat_hash",
+    "compat_sync",
+    "alloc",
+] }
 
 [dev-dependencies]
 #rust-gmp = { version = "0.5",  git = "https://github.com/mikelodder7/rust-gmp" }
