@@ -100,7 +100,7 @@ pub struct PokeProof {
 
 impl PokeProof {
     /// The size of this proof serialized
-    pub const SIZE_BYTES: usize = 6 * FACTOR_SIZE + MEMBER_SIZE;
+    pub const SIZE_BYTES: usize = 2 * FACTOR_SIZE; // + MEMBER_SIZE;
 
     /// Create a new proof of knowledge of exponents as described in
     /// Appendix D from

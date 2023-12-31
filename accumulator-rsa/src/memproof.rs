@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
 /// A proof of knowledge of exponents membership proof
-#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct MembershipProof {
     pub proof: PokeProof,
     pub witness: MembershipWitness,
@@ -52,22 +52,23 @@ impl MembershipProof {
         )
     }
 
-    // /// Serialize this to bytes
-    // pub fn to_bytes(&self) -> Vec<u8> {
-    //     self.proof.to_bytes()
-    // }
+    /// Serialize this to bytes
+    pub fn to_bytes(&self) -> Vec<u8> {
+        vec![self.proof.to_bytes(), self.witness.to_bytes()].concat()
+    }
 }
 
-// impl TryFrom<&[u8]> for MembershipProof {
-//     type Error = AccumulatorError;
+impl TryFrom<&[u8]> for MembershipProof {
+    type Error = AccumulatorError;
 
-//     fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
-//         let proof = Poke2Proof::try_from(data)?;
-//         Ok(Self(proof))
-//     }
-// }
+    fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
+        let proof = PokeProof::try_from(&data[0..(PokeProof::SIZE_BYTES)])?;
+        let witness = MembershipWitness::try_from(&data[PokeProof::SIZE_BYTES..])?;
+        Ok(Self { proof, witness })
+    }
+}
 
-// serdes_impl!(MembershipProof);
+serdes_impl!(MembershipProof);
 
 #[cfg(test)]
 mod tests {
