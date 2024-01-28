@@ -13,7 +13,7 @@ use std::convert::TryFrom;
 /// <https://eprint.iacr.org/2018/1188.pdf>
 pub fn hash_to_prime<B: AsRef<[u8]>>(input: B) -> BigInteger {
     let mut input = input.as_ref().to_vec();
-    let mut i = 1usize;
+    let mut i = 1u64;
     let offset = input.len();
     input.extend_from_slice(&i.to_be_bytes()[..]);
     let end = input.len();
