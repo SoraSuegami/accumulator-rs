@@ -4,8 +4,8 @@ use no_std_compat::prelude::v1::vec;
 use no_std_compat::vec::Vec;
 
 use crate::{
-    accumulator::Accumulator, common::error::*, hash_to_prime, memwitness::MembershipWitness,
-    PokeProof,
+    accumulator::Accumulator, common::error::*, hash::hash_to_prime_with_nonce, hash_to_prime,
+    memwitness::MembershipWitness, PokeProof,
 };
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
@@ -39,7 +39,7 @@ impl MembershipProof {
 
     /// Verify a set membership proof
     pub fn verify<B: AsRef<[u8]>>(&self, accumulator: &Accumulator, x: B, nonce: B) -> bool {
-        let x = hash_to_prime(x);
+        let x = hash_to_prime_with_nonce(x, self.witness.hash_nonce);
         if x != self.witness.x {
             return false;
         }

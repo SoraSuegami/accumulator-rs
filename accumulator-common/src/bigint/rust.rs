@@ -1,21 +1,23 @@
 #[cfg(no_std)]
 use no_std_compat::prelude::v1::format;
-use no_std_compat::vec::Vec;
 use no_std_compat::prelude::v1::vec;
+use no_std_compat::vec::Vec;
 
 use super::GcdResult;
 use crate::error::AccumulatorError;
 //use num_bigint::{BigInt, RandBigInt, ToBigInt, Sign};
-use num_bigint::{BigInt, ToBigInt, Sign};
-use num_traits::{Zero, One, Signed, Num};
+use num_bigint::{BigInt, RandBigInt, RandomBits, Sign, ToBigInt};
 use num_integer::Integer;
+use num_traits::{Num, One, Signed, Zero};
 //use rand::prelude::*;
-
+use glass_pumpkin;
+use is_prime::is_prime;
+use rand::{thread_rng, Rng};
 use std::{
-    ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign, Rem, RemAssign},
     cmp::Ordering,
     convert::TryFrom,
-    str::FromStr
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, Sub, SubAssign},
+    str::FromStr,
 };
 use zeroize::Zeroize;
 
@@ -34,7 +36,7 @@ impl std::fmt::Display for RustBigInt {
 impl Clone for RustBigInt {
     fn clone(&self) -> Self {
         Self {
-            value: self.value.clone()
+            value: self.value.clone(),
         }
     }
 }
@@ -61,14 +63,18 @@ impl Ord for RustBigInt {
 
 impl Default for RustBigInt {
     fn default() -> Self {
-        Self { value: BigInt::zero() }
+        Self {
+            value: BigInt::zero(),
+        }
     }
 }
 
 impl RustBigInt {
     /// Used by the std::ops::Add methods
     fn add_(&self, rhs: &Self) -> Self {
-        Self { value: &self.value + &rhs.value }
+        Self {
+            value: &self.value + &rhs.value,
+        }
     }
 
     /// Used by the std::ops::AddAssign methods
@@ -78,7 +84,9 @@ impl RustBigInt {
 
     /// Used by the std::ops::Sub methods
     fn sub_(&self, rhs: &Self) -> Self {
-        Self { value: &self.value - &rhs.value }
+        Self {
+            value: &self.value - &rhs.value,
+        }
     }
 
     /// Used by the std::ops::SubAssign methods
@@ -88,7 +96,9 @@ impl RustBigInt {
 
     /// Used by the std::ops::Mul methods
     fn mul_(&self, rhs: &Self) -> Self {
-        Self { value: &self.value * &rhs.value }
+        Self {
+            value: &self.value * &rhs.value,
+        }
     }
 
     /// Used by the std::ops::MulAssign methods
@@ -98,7 +108,9 @@ impl RustBigInt {
 
     /// Used by the std::ops::Div methods
     fn div_(&self, rhs: &Self) -> Self {
-        Self { value: &self.value / &rhs.value }
+        Self {
+            value: &self.value / &rhs.value,
+        }
     }
 
     /// Used by the std::ops::DivAssign methods
@@ -108,7 +120,9 @@ impl RustBigInt {
 
     /// Used by the std::ops::Rem methods
     fn rem_(&self, rhs: &Self) -> Self {
-        Self { value: &self.value % &rhs.value }
+        Self {
+            value: &self.value % &rhs.value,
+        }
     }
 
     /// Used by the std::ops::RemAssign methods
@@ -126,13 +140,14 @@ impl RustBigInt {
     /// result = self ^ rhs mod order
     pub fn mod_exp(&self, exponent: &Self, modulus: &Self) -> Self {
         if exponent.value.is_zero() {
-            return Self { value: BigInt::one() };
+            return Self {
+                value: BigInt::one(),
+            };
         }
         if exponent.value.is_one() {
             return self.clone();
         }
-        let value =
-        if exponent.value.is_negative() {
+        let value = if exponent.value.is_negative() {
             let res = self.inverse(modulus);
             let exp = -&exponent.value;
             res.modpow(&exp, &modulus.value)
@@ -163,7 +178,9 @@ impl RustBigInt {
     /// Compute modular square and return the result
     /// result = self ^ 2 mod order
     pub fn mod_sqr(&self, modulus: &Self) -> Self {
-        Self { value: (&self.value * &self.value) % &modulus.value }
+        Self {
+            value: (&self.value * &self.value) % &modulus.value,
+        }
     }
 
     /// Compute modular exponentiation and assign it to self
@@ -175,7 +192,9 @@ impl RustBigInt {
     /// Compute modular inverse and return the result
     /// result = self ^ -1 mod order
     pub fn mod_inverse(&self, modulus: &Self) -> Self {
-        Self { value: self.inverse(modulus) }
+        Self {
+            value: self.inverse(modulus),
+        }
     }
 
     /// Compute modular inverse and assign it to self
@@ -185,8 +204,7 @@ impl RustBigInt {
     }
 
     fn inverse(&self, modulus: &Self) -> BigInt {
-        if modulus.value.is_zero() ||
-            modulus.value.is_one() {
+        if modulus.value.is_zero() || modulus.value.is_one() {
             panic!("Invalid modulus");
         }
 
@@ -200,7 +218,7 @@ impl RustBigInt {
             t = new_t.clone();
             new_t = &temp_t - &q * &new_t;
 
-            let temp_r =  r.clone();
+            let temp_r = r.clone();
             r = new_r.clone();
             new_r = &temp_r - &q * &new_r;
         }
@@ -216,7 +234,9 @@ impl RustBigInt {
     /// Compute modular multiplication and return the result
     /// result = self * rhs mod order
     pub fn mod_mul(&self, rhs: &Self, modulus: &Self) -> Self {
-        Self { value: (&self.value * &rhs.value) % &modulus.value }
+        Self {
+            value: (&self.value * &rhs.value) % &modulus.value,
+        }
     }
 
     /// Compute modular exponentiation and assign it to self
@@ -227,27 +247,34 @@ impl RustBigInt {
 
     /// Generate a prime number of `size` bits
     pub fn generate_prime(size: usize) -> Self {
-        Self { 
-        	//value: glass_pumpkin::prime::new(size).unwrap().to_bigint().unwrap()
-        	value: BigInt::one() 
+        Self {
+            value: glass_pumpkin::prime::new(size)
+                .unwrap()
+                .to_bigint()
+                .unwrap(), // value: BigInt::one(),
         }
     }
 
     /// Generate a safe prime number of `size` bits
     pub fn generate_safe_prime(size: usize) -> Self {
-        Self { 
-        	//value: glass_pumpkin::safe_prime::new(size).unwrap().to_bigint().unwrap()
-        	value: BigInt::one()
+        Self {
+            value: glass_pumpkin::safe_prime::new(size)
+                .unwrap()
+                .to_bigint()
+                .unwrap(), // value: BigInt::one(),
         }
     }
 
     /// Generate a random value less than `self`
     pub fn rand_range(&self) -> Self {
-        //let mut rng = thread_rng();
-        //let value = rng.gen_bigint_range(&BigInt::zero(), &self.value);
-        let value = BigInt::zero();
-        //Self { value }
+        let mut rng = thread_rng();
+        // let mut value = rng.sample(RandomBits::new(self.value.bits() as u64));
+        // let mut value = rng.gen_bigint(self.value.bits() as u64);
+        // value = value % &self.value;
+        let value = rng.gen_bigint_range(&BigInt::zero(), &self.value);
+        // let value = BigInt::zero();
         Self { value }
+        // Self { value }
     }
 
     /// Determine if `self` is a prime number
@@ -255,8 +282,9 @@ impl RustBigInt {
         if self.value.is_negative() {
             return false;
         }
-        //glass_pumpkin::prime::check(&self.value.to_biguint().unwrap())
-        true
+        // glass_pumpkin::prime::check(&self.value.to_biguint().unwrap())
+        // true
+        is_prime(self.value.to_str_radix(10).as_str())
     }
 
     /// Computes Bézout's coefficients and returns `s` and `t`
@@ -269,21 +297,25 @@ impl RustBigInt {
             return GcdResult {
                 value: Self::default(),
                 a: Self::default(),
-                b: Self::default()
+                b: Self::default(),
             };
         }
         if self.value.is_zero() {
             return GcdResult {
                 value: Self::default(),
                 a: Self::default(),
-                b: Self { value: BigInt::one() },
+                b: Self {
+                    value: BigInt::one(),
+                },
             };
         }
         if rhs.value.is_zero() {
             return GcdResult {
                 value: Self::default(),
-                a: Self { value: BigInt::one() },
-                b: Self::default()
+                a: Self {
+                    value: BigInt::one(),
+                },
+                b: Self::default(),
             };
         }
 
@@ -313,7 +345,7 @@ impl RustBigInt {
         GcdResult {
             value: Self { value: old_r },
             a: Self { value: old_s },
-            b: Self { value: old_t }
+            b: Self { value: old_t },
         }
     }
 
@@ -330,7 +362,7 @@ impl RustBigInt {
 }
 
 impl std::iter::Product<RustBigInt> for RustBigInt {
-    fn product<I: Iterator<Item=RustBigInt>>(iter: I) -> Self {
+    fn product<I: Iterator<Item = RustBigInt>>(iter: I) -> Self {
         let mut value = BigInt::one();
         for i in iter {
             value *= &i.value;
@@ -340,7 +372,7 @@ impl std::iter::Product<RustBigInt> for RustBigInt {
 }
 
 impl<'a> std::iter::Product<&'a RustBigInt> for RustBigInt {
-    fn product<I: Iterator<Item=&'a RustBigInt>>(iter: I) -> Self {
+    fn product<I: Iterator<Item = &'a RustBigInt>>(iter: I) -> Self {
         let mut value = BigInt::one();
         for i in iter {
             value *= &i.value;
@@ -350,7 +382,7 @@ impl<'a> std::iter::Product<&'a RustBigInt> for RustBigInt {
 }
 
 impl std::iter::Sum<RustBigInt> for RustBigInt {
-    fn sum<I: Iterator<Item=RustBigInt>>(iter: I) -> Self {
+    fn sum<I: Iterator<Item = RustBigInt>>(iter: I) -> Self {
         let mut value = BigInt::zero();
         for i in iter {
             value += &i.value;
@@ -360,7 +392,7 @@ impl std::iter::Sum<RustBigInt> for RustBigInt {
 }
 
 impl<'a> std::iter::Sum<&'a RustBigInt> for RustBigInt {
-    fn sum<I: Iterator<Item=&'a RustBigInt>>(iter: I) -> Self {
+    fn sum<I: Iterator<Item = &'a RustBigInt>>(iter: I) -> Self {
         let mut value = BigInt::zero();
         for i in iter {
             value += &i.value;
@@ -379,7 +411,9 @@ impl TryFrom<&[u8]> for RustBigInt {
     type Error = AccumulatorError;
 
     fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
-        Ok(Self { value: BigInt::from_bytes_be(Sign::Plus, data) })
+        Ok(Self {
+            value: BigInt::from_bytes_be(Sign::Plus, data),
+        })
     }
 }
 
@@ -387,7 +421,9 @@ impl FromStr for RustBigInt {
     type Err = AccumulatorError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Self { value: BigInt::from_str_radix(s, 10)? })
+        Ok(Self {
+            value: BigInt::from_str_radix(s, 10)?,
+        })
     }
 }
 
@@ -395,7 +431,9 @@ macro_rules! from_impl {
     ($ty:ty) => {
         impl From<$ty> for RustBigInt {
             fn from(value: $ty) -> Self {
-                Self { value: BigInt::from(value) }
+                Self {
+                    value: BigInt::from(value),
+                }
             }
         }
     };
@@ -434,7 +472,9 @@ macro_rules! ops_impl {
 
 impl From<Vec<u8>> for RustBigInt {
     fn from(value: Vec<u8>) -> Self {
-        Self { value: BigInt::from_bytes_be(Sign::Plus, value.as_slice()) }
+        Self {
+            value: BigInt::from_bytes_be(Sign::Plus, value.as_slice()),
+        }
     }
 }
 
@@ -447,7 +487,9 @@ impl Into<Vec<u8>> for RustBigInt {
 
 impl From<&str> for RustBigInt {
     fn from(value: &str) -> Self {
-        Self { value: BigInt::from_str_radix(value, 10).unwrap() }
+        Self {
+            value: BigInt::from_str_radix(value, 10).unwrap(),
+        }
     }
 }
 
@@ -489,8 +531,12 @@ mod tests {
         let gcdres = a.bezouts_coefficients(&b);
         assert_eq!(&a * &gcdres.a + &b * &gcdres.b, RustBigInt::from(1));
 
-        let a = RustBigInt::from("63156515965705215668198135979702445890399855958342988288023717346298762458519");
-        let b = RustBigInt::from("88222503113609549383110571557868679926843894352175049520163164425194315455087");
+        let a = RustBigInt::from(
+            "63156515965705215668198135979702445890399855958342988288023717346298762458519",
+        );
+        let b = RustBigInt::from(
+            "88222503113609549383110571557868679926843894352175049520163164425194315455087",
+        );
         let gcdres = a.bezouts_coefficients(&b);
         assert_eq!(&a * &gcdres.a + &b * &gcdres.b, RustBigInt::from(1));
 

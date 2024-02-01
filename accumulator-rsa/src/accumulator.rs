@@ -72,7 +72,7 @@ impl Accumulator {
     pub fn with_members<M: AsRef<[B]>, B: AsRef<[u8]>>(key: &AccumulatorSecretKey, m: M) -> Self {
         let m: Vec<&[u8]> = m.as_ref().iter().map(|b| b.as_ref()).collect();
         //let members: BTreeSet<BigInteger> = m.par_iter().map(|b| hash_to_prime(b)).collect();
-        let members: BTreeSet<BigInteger> = m.iter().map(|b| hash_to_prime(b)).collect();
+        let members: BTreeSet<BigInteger> = m.iter().map(|b| hash_to_prime(b).0).collect();
         Self::_add_members(key, members)
     }
 
@@ -150,7 +150,7 @@ impl Accumulator {
 
     /// Add a value an update this accumulator
     pub fn insert_assign<B: AsRef<[u8]>>(&mut self, value: B) -> Result<(), AccumulatorError> {
-        let p = hash_to_prime(value);
+        let (p, _) = hash_to_prime(value);
         self._insert(&p)
     }
 
@@ -206,7 +206,7 @@ impl Accumulator {
         key: &AccumulatorSecretKey,
         value: B,
     ) -> Result<(), AccumulatorError> {
-        let v = hash_to_prime(value);
+        let (v, _) = hash_to_prime(value);
         self._remove(key, &v)
     }
 

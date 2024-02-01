@@ -16,17 +16,22 @@ use std::convert::TryFrom;
 pub struct MembershipWitness {
     pub u: BigInteger,
     pub x: BigInteger,
+    pub hash_nonce: u64,
 }
 
 impl MembershipWitness {
     /// Return a new membership witness
     pub fn new<B: AsRef<[u8]>>(accumulator: &Accumulator, x: B) -> Result<Self, AccumulatorError> {
-        let x = hash_to_prime(x.as_ref());
-        Self::new_prime(accumulator, &x)
+        let (x, hash_nonce) = hash_to_prime(x.as_ref());
+        Self::new_prime(accumulator, &x, Some(hash_nonce))
     }
 
     /// Return a new membership witness with a value that is already prime
-    pub fn new_prime(accumulator: &Accumulator, x: &BigInteger) -> Result<Self, AccumulatorError> {
+    pub fn new_prime(
+        accumulator: &Accumulator,
+        x: &BigInteger,
+        hash_nonce: Option<u64>,
+    ) -> Result<Self, AccumulatorError> {
         if !accumulator.members.contains(&x) {
             return Err(AccumulatorError::InvalidMemberSupplied(
                 "value is not in the accumulator".to_string(),
@@ -40,7 +45,11 @@ impl MembershipWitness {
             .filter(|b| b != x)
             .product();
         let u = (&accumulator.generator).mod_exp(&exp, &accumulator.modulus);
-        Ok(Self { u, x: x.clone() })
+        Ok(Self {
+            u,
+            x: x.clone(),
+            hash_nonce: hash_nonce.unwrap_or(0),
+        })
     }
 
     /// Return a new membership witness. This is more efficient that `new` due to
@@ -50,8 +59,8 @@ impl MembershipWitness {
         secret_key: &AccumulatorSecretKey,
         x: B,
     ) -> Self {
-        let x = hash_to_prime(x.as_ref());
-        Self::with_prime_and_secret_key(accumulator, secret_key, &x)
+        let (x, hash_nonce) = hash_to_prime(x.as_ref());
+        Self::with_prime_and_secret_key(accumulator, secret_key, &x, Some(hash_nonce))
     }
 
     /// Return a new membership witness with a value already prime.
@@ -61,11 +70,14 @@ impl MembershipWitness {
         accumulator: &Accumulator,
         secret_key: &AccumulatorSecretKey,
         x: &BigInteger,
+        hash_nonce: Option<u64>,
     ) -> Self {
+        let hash_nonce = hash_nonce.unwrap_or(0);
         if !accumulator.members.contains(&x) {
             return MembershipWitness {
                 u: accumulator.value.clone(),
                 x: x.clone(),
+                hash_nonce,
             };
         }
         let totient = secret_key.totient();
@@ -80,7 +92,11 @@ impl MembershipWitness {
             .reduce(|_, _| BigInteger::from(1u32));
 
         let u = (&accumulator.generator).mod_exp(&exp.unwrap(), &accumulator.modulus);
-        Self { u, x: x.clone() }
+        Self {
+            u,
+            x: x.clone(),
+            hash_nonce,
+        }
     }
 
     /// Create a new witness to match `new_acc` from `old_acc` using this witness
@@ -151,6 +167,7 @@ impl MembershipWitness {
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut output = b2fa(&self.u, FACTOR_SIZE * 2);
         output.append(&mut b2fa(&self.x, MEMBER_SIZE));
+        output.append(self.hash_nonce.to_be_bytes().to_vec().as_mut());
         output
     }
 }
@@ -159,16 +176,18 @@ impl TryFrom<&[u8]> for MembershipWitness {
     type Error = AccumulatorError;
 
     fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
-        if data.len() != FACTOR_SIZE * 2 + MEMBER_SIZE {
+        if data.len() != FACTOR_SIZE * 2 + MEMBER_SIZE + 8 {
             return Err(AccumulatorError::SerializationError(format!(
                 "Invalid bytes, expected {}, got {}",
-                FACTOR_SIZE * 2 + MEMBER_SIZE,
+                FACTOR_SIZE * 2 + MEMBER_SIZE + 8,
                 data.len()
             )));
         }
         let u = BigInteger::try_from(&data[..(FACTOR_SIZE * 2)])?;
-        let x = BigInteger::try_from(&data[(FACTOR_SIZE * 2)..])?;
-        Ok(Self { u, x })
+        let x = BigInteger::try_from(&data[(FACTOR_SIZE * 2)..(FACTOR_SIZE * 2 + MEMBER_SIZE)])?;
+        let hash_nonce =
+            u64::from_be_bytes(data[(FACTOR_SIZE * 2 + MEMBER_SIZE)..].try_into().unwrap());
+        Ok(Self { u, x, hash_nonce })
     }
 }
 

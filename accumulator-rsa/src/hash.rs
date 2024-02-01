@@ -11,7 +11,7 @@ use std::convert::TryFrom;
 /// Hashes `input` to a prime.
 /// See Section 7 in
 /// <https://eprint.iacr.org/2018/1188.pdf>
-pub fn hash_to_prime<B: AsRef<[u8]>>(input: B) -> BigInteger {
+pub fn hash_to_prime<B: AsRef<[u8]>>(input: B) -> (BigInteger, u64) {
     let mut input = input.as_ref().to_vec();
     let mut i = 1u64;
     let offset = input.len();
@@ -34,6 +34,21 @@ pub fn hash_to_prime<B: AsRef<[u8]>>(input: B) -> BigInteger {
         i += 1;
         let i_bytes = i.to_be_bytes();
         input[offset..end].clone_from_slice(&i_bytes[..]);
+    }
+    (num, i)
+}
+
+pub fn hash_to_prime_with_nonce<B: AsRef<[u8]>>(input: B, nonce: u64) -> BigInteger {
+    let mut input = input.as_ref().to_vec();
+    // let mut i = 1u64;
+    // let offset = input.len();
+    input.extend_from_slice(&nonce.to_be_bytes()[..]);
+    // let end = input.len();
+    let mut hash = Blake2b::digest(input.as_slice());
+    hash[63] |= 1;
+    let num = BigInteger::try_from(&hash[32..]).unwrap();
+    if !num.is_prime() {
+        panic!("Generated number in hash_to_prime_with_nonce is not prime");
     }
     num
 }

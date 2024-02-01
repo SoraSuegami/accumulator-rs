@@ -48,6 +48,7 @@ use crate::hash::hash_to_generator;
 use crate::hash::hash_to_prime;
 use blake2::{digest::Digest, Blake2b};
 use common::{bigint::BigInteger, error::AccumulatorError};
+use hash::hash_to_prime_with_nonce;
 use std::convert::TryFrom;
 
 /// Convenience module to include when using
@@ -96,11 +97,12 @@ pub(crate) fn hashed_generator<B: AsRef<[u8]>>(
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct PokeProof {
     q: BigInteger,
+    hash_nonce: u64,
 }
 
 impl PokeProof {
     /// The size of this proof serialized
-    pub const SIZE_BYTES: usize = 2 * FACTOR_SIZE; // + MEMBER_SIZE;
+    pub const SIZE_BYTES: usize = 2 * FACTOR_SIZE + 8; // + MEMBER_SIZE;
 
     /// Create a new proof of knowledge of exponents as described in
     /// Appendix D from
@@ -128,14 +130,15 @@ impl PokeProof {
     ) -> Self {
         let f = common::Field::new(n);
         // let z = f.exp(&g, x);
-        let l = Self::get_prime(&x, &u, &a, nonce.as_ref());
-
+        let (l, hash_nonce) = Self::get_prime(&x, &u, &a, nonce.as_ref(), None);
+        let hash_nonce = hash_nonce.unwrap();
+        println!("l hash_nonce: {}", hash_nonce);
         // q = x / l
         let (whole, _) = BigInteger::div_rem(&x, &l);
 
         // Q = u ^ q
         let q = f.exp(&u, &whole);
-        Self { q }
+        Self { q, hash_nonce }
     }
 
     // /// Verify a proof of knowledge of exponents
@@ -157,19 +160,20 @@ impl PokeProof {
     ) -> bool {
         let f = common::Field::new(n);
         let nonce = nonce.as_ref();
-        let l = Self::get_prime(&x, &u, &a, nonce.as_ref());
-
+        println!("verify l hash_nonce: {}", self.hash_nonce);
+        let (l, _) = Self::get_prime(&x, &u, &a, nonce.as_ref(), Some(self.hash_nonce));
         // r = x mod l
         let (_, r) = BigInteger::div_rem(&x, &l);
 
         // Q^l * u^r = a mod n
-        let left = f.mul(&f.exp(&self.q, &l), &f.mul(&u, &r));
+        let left = f.mul(&f.exp(&self.q, &l), &f.exp(&u, &r));
         left == *a
     }
 
     /// Serialize this to bytes
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut output = b2fa(&self.q, 2 * FACTOR_SIZE);
+        output.append(self.hash_nonce.to_be_bytes().to_vec().as_mut());
         // output.append(&mut b2fa(&self.z, 2 * FACTOR_SIZE));
         // output.append(&mut b2fa(&self.q, 2 * FACTOR_SIZE));
         // output.append(&mut b2fa(&self.r, MEMBER_SIZE));
@@ -197,15 +201,25 @@ impl PokeProof {
     //     (l, alpha)
     // }
 
-    fn get_prime(x: &BigInteger, u: &BigInteger, a: &BigInteger, nonce: &[u8]) -> BigInteger {
+    fn get_prime(
+        x: &BigInteger,
+        u: &BigInteger,
+        a: &BigInteger,
+        nonce: &[u8],
+        hash_nonce: Option<u64>,
+    ) -> (BigInteger, Option<u64>) {
         let mut data = x.to_bytes();
         data.append(&mut u.to_bytes());
         data.append(&mut a.to_bytes());
         data.extend_from_slice(nonce);
 
         // l = H2P( x || u || A || n1 )
-        let l = hash_to_prime(data.as_slice());
-        l
+        if let Some(hash_nonce) = hash_nonce {
+            (hash_to_prime_with_nonce(data.as_slice(), hash_nonce), None)
+        } else {
+            let (num, hash_nonce) = hash_to_prime(data.as_slice());
+            (num, Some(hash_nonce))
+        }
     }
 }
 
@@ -221,10 +235,11 @@ impl TryFrom<&[u8]> for PokeProof {
             )));
         }
         let q = BigInteger::try_from(&data[..(2 * FACTOR_SIZE)])?;
+        let hash_nonce = u64::from_be_bytes(data[(2 * FACTOR_SIZE)..].try_into().unwrap());
         // let z = BigInteger::try_from(&data[(2 * FACTOR_SIZE)..(4 * FACTOR_SIZE)])?;
         // let q = BigInteger::try_from(&data[(4 * FACTOR_SIZE)..(6 * FACTOR_SIZE)])?;
         // let r = BigInteger::try_from(&data[(6 * FACTOR_SIZE)..])?;
-        Ok(Self { q })
+        Ok(Self { q, hash_nonce })
     }
 }
 
