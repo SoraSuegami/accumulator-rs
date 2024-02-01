@@ -160,7 +160,6 @@ impl PokeProof {
     ) -> bool {
         let f = common::Field::new(n);
         let nonce = nonce.as_ref();
-        println!("verify l hash_nonce: {}", self.hash_nonce);
         let (l, _) = Self::get_prime(&x, &u, &a, nonce.as_ref(), Some(self.hash_nonce));
         // r = x mod l
         let (_, r) = BigInteger::div_rem(&x, &l);
